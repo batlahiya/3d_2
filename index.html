@@ -1,62 +1,220 @@
-<script src="https://cdn.jsdelivr.net/gh/aframevr/aframe@1c2407b26c61958baa93967b5412487cd94b290b/dist/aframe-master.min.js"></script>
-<script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Marker AR – Cannon Viewer</title>
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.min.js"></script>
+  <style>
+    body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; }
+    a-scene { width: 100%; height: 100%; }
 
-<style>
-  .arjs-loader {
-    height: 100%;
-    width: 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
-    background-color: rgba(0, 0, 0, 0.8);
-    z-index: 9999;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
+    /* Overlay & UI Elements */
+    .loading-overlay, .instructions, .controls, .status, .model-loading {
+      position: fixed; z-index: 100;
+    }
 
-  .arjs-loader div {
-    text-align: center;
-    font-size: 1.25em;
-    color: white;
-  }
-</style>
+    .loading-overlay {
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity 0.5s ease;
+    }
 
-<body style="margin : 0px; overflow: hidden;">
-  <!-- minimal loader shown until image descriptors are loaded -->
-  <div class="arjs-loader">
-    <div>Loading, please wait...</div>
+    .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+
+    .loader {
+      width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1);
+      border-left-color: #ff6b6b; border-radius: 50%; animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    .loading-text { color: white; font-size: 20px; font-weight: bold; margin: 15px 0; }
+    .loading-subtitle { color: #eee; font-size: 16px; text-align: center; max-width: 300px; }
+
+    .instructions {
+      top: 20px; left: 20px; right: 20px; max-width: 400px; margin: auto;
+      padding: 20px; border-radius: 15px; background: rgba(0, 0, 0, 0.85); color: white;
+    }
+
+    .instructions.hidden { transform: translateY(-120%); transition: transform 0.3s ease; }
+
+    .qr-preview {
+      width: 120px; height: 120px; background: white; color: #333;
+      margin: 15px auto; display: flex; justify-content: center; align-items: center;
+      font-size: 12px; text-align: center; border: 2px solid #ff6b6b; border-radius: 8px;
+    }
+
+    .controls {
+      bottom: 20px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 10px;
+    }
+
+    .control-btn {
+      background: rgba(0,0,0,0.8); border: 2px solid #ff6b6b; color: white;
+      padding: 10px 15px; border-radius: 25px; font-weight: 600; cursor: pointer;
+    }
+
+    .control-btn:hover {
+      background: #ff6b6b; box-shadow: 0 4px 15px rgba(255,107,107,0.3);
+    }
+
+    .status {
+      top: 20px; right: 20px; background: rgba(0,0,0,0.8); border-radius: 20px;
+      padding: 10px 15px; display: flex; align-items: center; gap: 8px; color: white;
+    }
+
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #ff6b6b;
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.found { background: #4ecdc4; animation: none; }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .model-loading {
+      bottom: 100px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.7); padding: 10px 20px;
+      border-radius: 20px; color: white; font-size: 14px;
+      box-shadow: 0 0 10px rgba(255,107,107,0.5); display: none;
+    }
+
+    @media (max-width: 768px) {
+      .instructions { top: 10px; left: 10px; right: 10px; padding: 15px; }
+      .controls { bottom: 10px; flex-wrap: wrap; justify-content: center; }
+      .control-btn { flex: 1; min-width: 100px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loader"></div>
+    <div class="loading-text">Starting AR Camera</div>
+    <div class="loading-subtitle">Point your camera at the marker to see the cannon</div>
   </div>
+
+  <div class="model-loading" id="modelLoading">🔄 Loading cannon model...</div>
+
+  <div class="instructions" id="instructions">
+    <div><strong>📱 AR Instructions</strong></div>
+    <div>1. Print or display the marker<br>2. Point your camera<br>3. See the 6-Pounder Cannon!</div>
+    <div class="qr-preview">HIRO Marker<br><small>Print this</small></div>
+  </div>
+
+  <div class="status" id="status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Initializing camera...</span>
+  </div>
+
+  <div class="controls">
+    <button class="control-btn" onclick="toggleInstructions()">❓ Help</button>
+    <button class="control-btn" onclick="downloadMarker()">📄 Get Marker</button>
+    <button class="control-btn" onclick="toggleCamera()">📷 Camera</button>
+  </div>
+
   <a-scene
-    vr-mode-ui="enabled: false;"
-    renderer="logarithmicDepthBuffer: true;"
     embedded
-    arjs="trackingMethod: best; sourceType: webcam;debugUIEnabled: false;"
+    arjs="sourceType: webcam; debugUIEnabled: false;"
+    vr-mode-ui="enabled: false"
   >
-    <!-- we use cors proxy to avoid cross-origin problems -->
+    <a-assets>
+      <a-asset-item id="cannonModel" src="./cannon.glb"></a-asset-item>
+      <a-asset-item id="fallbackModel" src="https://modelviewer.dev/shared-assets/models/Astronaut.glb"></a-asset-item>
+    </a-assets>
 
-    <!--
-      ⚠️⚠️⚠️
-      https://arjs-cors-proxy.herokuapp.com/ is now offline, Heroku has dismissed all his free plans from November 2022.
-      You need to host your own proxy and use it instead. The proxy is based on CORS Anywhere (see https://github.com/Rob--W/cors-anywhere).
-      ⚠️⚠️⚠️
-    -->
-
-    <a-nft
-      type="nft"
-      url="https://arjs-cors-proxy.herokuapp.com/https://raw.githack.com/AR-js-org/AR.js/master/aframe/examples/image-tracking/nft/trex/trex-image/trex"
-      smooth="true"
-      smoothCount="10"
-      smoothTolerance=".01"
-      smoothThreshold="5"
-    >
+    <a-marker preset="hiro" id="marker">
       <a-entity
-        gltf-model="https://arjs-cors-proxy.herokuapp.com/https://raw.githack.com/AR-js-org/AR.js/master/aframe/examples/image-tracking/nft/trex/scene.gltf"
-        scale="5 5 5"
-        position="50 150 0"
-      >
-      </a-entity>
-    </a-nft>
+        id="cannonEntity"
+        gltf-model="#cannonModel"
+        position="0 0.5 0"
+        scale="0.5 0.5 0.5"
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 10000"
+      ></a-entity>
+      <a-light type="ambient" intensity="0.4"></a-light>
+      <a-light type="directional" intensity="0.8" position="2 4 2"></a-light>
+      <a-plane position="0 0 0" rotation="-90 0 0" width="4" height="4" color="#555"
+               opacity="0.3" shadow="receive: true"></a-plane>
+    </a-marker>
+
     <a-entity camera></a-entity>
   </a-scene>
+
+  <script>
+    const overlay = document.getElementById('loadingOverlay');
+    const instructions = document.getElementById('instructions');
+    const statusText = document.getElementById('statusText');
+    const statusDot = document.getElementById('statusDot');
+    const marker = document.getElementById('marker');
+    const cannon = document.getElementById('cannonEntity');
+    const modelLoading = document.getElementById('modelLoading');
+    let cameraOn = true;
+
+    // Hide initial overlay
+    window.onload = () => {
+      setTimeout(() => {
+        overlay.classList.add('hidden');
+        statusText.textContent = 'Camera ready. Looking for marker...';
+      }, 2000);
+    };
+
+    // Cycle status messages
+    let msgStep = 0;
+    const messages = ['Looking for marker...', 'Hold steady...', 'Almost there...'];
+    setInterval(() => {
+      if (!statusDot.classList.contains('found')) {
+        statusText.textContent = messages[msgStep % messages.length];
+        msgStep++;
+      }
+    }, 3000);
+
+    marker.addEventListener('markerFound', () => {
+      statusText.textContent = '📍 Marker detected!';
+      statusDot.classList.add('found');
+      modelLoading.style.display = 'block';
+
+      cannon.addEventListener('model-loaded', () => {
+        statusText.textContent = '✅ Cannon loaded!';
+        modelLoading.style.display = 'none';
+      });
+
+      cannon.addEventListener('model-error', () => {
+        console.warn('Primary model failed. Loading fallback.');
+        cannon.setAttribute('gltf-model', '#fallbackModel');
+      });
+    });
+
+    marker.addEventListener('markerLost', () => {
+      statusText.textContent = 'Marker lost. Searching again...';
+      statusDot.classList.remove('found');
+      modelLoading.style.display = 'none';
+    });
+
+    function toggleInstructions() {
+      instructions.classList.toggle('hidden');
+    }
+
+    function downloadMarker() {
+      const link = document.createElement('a');
+      link.href = 'https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/hiro.png';
+      link.download = 'hiro-marker.png';
+      link.click();
+    }
+
+    function toggleCamera() {
+      const scene = document.querySelector('a-scene');
+      if (cameraOn) {
+        scene.pause();
+        statusText.textContent = '⏸️ Camera paused';
+      } else {
+        scene.play();
+        statusText.textContent = '📷 Camera resumed. Looking...';
+      }
+      cameraOn = !cameraOn;
+    }
+  </script>
 </body>
+</html>
