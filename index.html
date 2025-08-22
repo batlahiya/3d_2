@@ -1,220 +1,214 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Marker AR – Cannon Viewer</title>
-  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.min.js"></script>
-  <style>
-    body { margin: 0; background: #000; font-family: sans-serif; overflow: hidden; }
-    a-scene { width: 100%; height: 100%; }
-
-    /* Overlay & UI Elements */
-    .loading-overlay, .instructions, .controls, .status, .model-loading {
-      position: fixed; z-index: 100;
-    }
-
-    .loading-overlay {
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      transition: opacity 0.5s ease;
-    }
-
-    .loading-overlay.hidden { opacity: 0; pointer-events: none; }
-
-    .loader {
-      width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1);
-      border-left-color: #ff6b6b; border-radius: 50%; animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-    .loading-text { color: white; font-size: 20px; font-weight: bold; margin: 15px 0; }
-    .loading-subtitle { color: #eee; font-size: 16px; text-align: center; max-width: 300px; }
-
-    .instructions {
-      top: 20px; left: 20px; right: 20px; max-width: 400px; margin: auto;
-      padding: 20px; border-radius: 15px; background: rgba(0, 0, 0, 0.85); color: white;
-    }
-
-    .instructions.hidden { transform: translateY(-120%); transition: transform 0.3s ease; }
-
-    .qr-preview {
-      width: 120px; height: 120px; background: white; color: #333;
-      margin: 15px auto; display: flex; justify-content: center; align-items: center;
-      font-size: 12px; text-align: center; border: 2px solid #ff6b6b; border-radius: 8px;
-    }
-
-    .controls {
-      bottom: 20px; left: 50%; transform: translateX(-50%);
-      display: flex; gap: 10px;
-    }
-
-    .control-btn {
-      background: rgba(0,0,0,0.8); border: 2px solid #ff6b6b; color: white;
-      padding: 10px 15px; border-radius: 25px; font-weight: 600; cursor: pointer;
-    }
-
-    .control-btn:hover {
-      background: #ff6b6b; box-shadow: 0 4px 15px rgba(255,107,107,0.3);
-    }
-
-    .status {
-      top: 20px; right: 20px; background: rgba(0,0,0,0.8); border-radius: 20px;
-      padding: 10px 15px; display: flex; align-items: center; gap: 8px; color: white;
-    }
-
-    .status-dot {
-      width: 8px; height: 8px; border-radius: 50%; background: #ff6b6b;
-      animation: pulse 2s infinite;
-    }
-
-    .status-dot.found { background: #4ecdc4; animation: none; }
-
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-
-    .model-loading {
-      bottom: 100px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.7); padding: 10px 20px;
-      border-radius: 20px; color: white; font-size: 14px;
-      box-shadow: 0 0 10px rgba(255,107,107,0.5); display: none;
-    }
-
-    @media (max-width: 768px) {
-      .instructions { top: 10px; left: 10px; right: 10px; padding: 15px; }
-      .controls { bottom: 10px; flex-wrap: wrap; justify-content: center; }
-      .control-btn { flex: 1; min-width: 100px; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive 3D Model with Skybox</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden;
+            height: 100%;
+            font-family: 'Arial', sans-serif; /* Futuristic font */
+        }
+        canvas { 
+            display: block; 
+        }
+        #loader {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: #fff;
+        }
+        #notice {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            font-size: 24px;
+            color: #fff;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+        #notice p {
+            text-align: center;
+            font-size: 2rem;
+            animation: scrollText 5s infinite linear;
+        }
+        @keyframes scrollText {
+            0% { transform: translateY(100%); }
+            100% { transform: translateY(-100%); }
+        }
+        #logo {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            max-width: 200px;
+            opacity: 0.8;
+            transition: opacity 0.5s ease;
+        }
+        #logo:hover {
+            opacity: 1;
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5); /* Dark overlay on the background */
+            z-index: -1; /* Put it behind the model */
+        }
+    </style>
 </head>
 <body>
+    <div id="loader">Loading...</div>
+    <div id="notice"><p>Click and drag to rotate the model!</p></div>
+    <div class="overlay"></div> <!-- Dark shade on background -->
 
-  <div class="loading-overlay" id="loadingOverlay">
-    <div class="loader"></div>
-    <div class="loading-text">Starting AR Camera</div>
-    <div class="loading-subtitle">Point your camera at the marker to see the cannon</div>
-  </div>
+    <!-- Logo at the top left corner -->
+    <img id="logo" src="logo.png" alt="Logo">
 
-  <div class="model-loading" id="modelLoading">🔄 Loading cannon model...</div>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.135.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.135.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.135.0/examples/js/loaders/GLTFLoader.js"></script>
 
-  <div class="instructions" id="instructions">
-    <div><strong>📱 AR Instructions</strong></div>
-    <div>1. Print or display the marker<br>2. Point your camera<br>3. See the 6-Pounder Cannon!</div>
-    <div class="qr-preview">HIRO Marker<br><small>Print this</small></div>
-  </div>
+    <script>
+        // Set up the scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true; // Enable shadow maps
+        document.body.appendChild(renderer.domElement);
 
-  <div class="status" id="status">
-    <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">Initializing camera...</span>
-  </div>
+        // Set up the loader message
+        const loaderElement = document.getElementById('loader');
+        const noticeElement = document.getElementById('notice');
 
-  <div class="controls">
-    <button class="control-btn" onclick="toggleInstructions()">❓ Help</button>
-    <button class="control-btn" onclick="downloadMarker()">📄 Get Marker</button>
-    <button class="control-btn" onclick="toggleCamera()">📷 Camera</button>
-  </div>
+        // Hide the notice when clicked
+        noticeElement.addEventListener('click', () => {
+            noticeElement.style.display = 'none'; // Hide the notice
+        });
 
-  <a-scene
-    embedded
-    arjs="sourceType: webcam; debugUIEnabled: false;"
-    vr-mode-ui="enabled: false"
-  >
-    <a-assets>
-      <a-asset-item id="cannonModel" src="./cannon.glb"></a-asset-item>
-      <a-asset-item id="fallbackModel" src="https://modelviewer.dev/shared-assets/models/Astronaut.glb"></a-asset-item>
-    </a-assets>
+        // Add OrbitControls for camera movement
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-    <a-marker preset="hiro" id="marker">
-      <a-entity
-        id="cannonEntity"
-        gltf-model="#cannonModel"
-        position="0 0.5 0"
-        scale="0.5 0.5 0.5"
-        animation="property: rotation; to: 0 360 0; loop: true; dur: 10000"
-      ></a-entity>
-      <a-light type="ambient" intensity="0.4"></a-light>
-      <a-light type="directional" intensity="0.8" position="2 4 2"></a-light>
-      <a-plane position="0 0 0" rotation="-90 0 0" width="4" height="4" color="#555"
-               opacity="0.3" shadow="receive: true"></a-plane>
-    </a-marker>
+        // Lighting - extremely bright model
+        const ambientLight = new THREE.AmbientLight(0xffffff, 2); // Moderate bright ambient light
+        scene.add(ambientLight);
 
-    <a-entity camera></a-entity>
-  </a-scene>
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 3); // Strong directional light
+        directionalLight.position.set(5, 10, 5);
+        directionalLight.castShadow = true; // Enable shadow casting from this light
+        scene.add(directionalLight);
 
-  <script>
-    const overlay = document.getElementById('loadingOverlay');
-    const instructions = document.getElementById('instructions');
-    const statusText = document.getElementById('statusText');
-    const statusDot = document.getElementById('statusDot');
-    const marker = document.getElementById('marker');
-    const cannon = document.getElementById('cannonEntity');
-    const modelLoading = document.getElementById('modelLoading');
-    let cameraOn = true;
+        // Add more point lights to increase brightness in various directions
+        const pointLight1 = new THREE.PointLight(0xffffff, 2, 100);
+        pointLight1.position.set(10, 10, 10);
+        pointLight1.castShadow = true; // Enable shadow casting
+        scene.add(pointLight1);
 
-    // Hide initial overlay
-    window.onload = () => {
-      setTimeout(() => {
-        overlay.classList.add('hidden');
-        statusText.textContent = 'Camera ready. Looking for marker...';
-      }, 2000);
-    };
+        const pointLight2 = new THREE.PointLight(0xffffff, 2, 100);
+        pointLight2.position.set(-10, -10, -10);
+        pointLight2.castShadow = true; // Enable shadow casting
+        scene.add(pointLight2);
 
-    // Cycle status messages
-    let msgStep = 0;
-    const messages = ['Looking for marker...', 'Hold steady...', 'Almost there...'];
-    setInterval(() => {
-      if (!statusDot.classList.contains('found')) {
-        statusText.textContent = messages[msgStep % messages.length];
-        msgStep++;
-      }
-    }, 3000);
+        // Additional point light to reduce dark areas in the model
+        const pointLight3 = new THREE.PointLight(0xffffff, 3, 100); // Increased intensity
+        pointLight3.position.set(0, 10, -10); // Positioned on the opposite side
+        pointLight3.castShadow = true;
+        scene.add(pointLight3);
 
-    marker.addEventListener('markerFound', () => {
-      statusText.textContent = '📍 Marker detected!';
-      statusDot.classList.add('found');
-      modelLoading.style.display = 'block';
+        // Add a spotlight for more directed light
+        const spotLight = new THREE.SpotLight(0xffffff, 2);
+        spotLight.position.set(0, 10, 5);
+        spotLight.target.position.set(0, 0, 0);
+        spotLight.castShadow = true; // Enable shadow casting
+        scene.add(spotLight);
+        scene.add(spotLight.target);
 
-      cannon.addEventListener('model-loaded', () => {
-        statusText.textContent = '✅ Cannon loaded!';
-        modelLoading.style.display = 'none';
-      });
+        // Load the 6 textures for the skybox using CubeTextureLoader
+        const loaderEnvMap = new THREE.CubeTextureLoader();
+        const texture = loaderEnvMap.load([
+        'textures/skybox/px.jpg', // Positive X (right)
+        'textures/skybox/nx.jpg', // Negative X (left)
+        'textures/skybox/py.jpg', // Positive Y (up)
+        'textures/skybox/ny.jpg', // Negative Y (down)
+        'textures/skybox/pz.jpg', // Positive Z (front)
+        'textures/skybox/nz.jpg'  // Negative Z (back)
+        ]);
+        scene.background = texture; // Set the loaded cube textures as the scene's background
 
-      cannon.addEventListener('model-error', () => {
-        console.warn('Primary model failed. Loading fallback.');
-        cannon.setAttribute('gltf-model', '#fallbackModel');
-      });
-    });
+        // Load the 3D model (GLTF format)
+        const loader = new THREE.GLTFLoader();
+        loader.load('statueglb2.glb', function(gltf) {
+            gltf.scene.position.set(0, 0, 0);
+            gltf.scene.rotation.set(0, Math.PI, 0); // Rotate model
+            gltf.scene.scale.set(1, 1, 1); // Scale the model
+            gltf.scene.castShadow = true;  // Enable the model to cast shadows
+            gltf.scene.receiveShadow = true; // Enable the model to receive shadows
+            scene.add(gltf.scene); // Add model to the scene
 
-    marker.addEventListener('markerLost', () => {
-      statusText.textContent = 'Marker lost. Searching again...';
-      statusDot.classList.remove('found');
-      modelLoading.style.display = 'none';
-    });
+            // Hide loading spinner once the model is loaded
+            loaderElement.style.display = 'none';
+        }, undefined, function(error) {
+            console.error('Error loading model:', error);
+        });
 
-    function toggleInstructions() {
-      instructions.classList.toggle('hidden');
-    }
+        // Create a ground plane to receive the shadow
+        const groundGeometry = new THREE.PlaneGeometry(50, 50);
+        const groundMaterial = new THREE.ShadowMaterial({ opacity: 0.5 }); // Shadow material for the ground
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = - Math.PI / 2;  // Rotate ground to lie flat
+        ground.position.y = -2;  // Position it below the model
+        ground.receiveShadow = true;  // Allow the ground to receive shadows
+        scene.add(ground);
 
-    function downloadMarker() {
-      const link = document.createElement('a');
-      link.href = 'https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/hiro.png';
-      link.download = 'hiro-marker.png';
-      link.click();
-    }
+        // Set camera position
+        camera.position.set(0, 2, 5);
 
-    function toggleCamera() {
-      const scene = document.querySelector('a-scene');
-      if (cameraOn) {
-        scene.pause();
-        statusText.textContent = '⏸️ Camera paused';
-      } else {
-        scene.play();
-        statusText.textContent = '📷 Camera resumed. Looking...';
-      }
-      cameraOn = !cameraOn;
-    }
-  </script>
+        // Add camera axis helper for better visibility of camera orientation
+        const cameraHelper = new THREE.AxesHelper(2);
+        camera.add(cameraHelper);
+
+        // Flag to control the spinning
+        let spinAngle = 0;
+        let isSpinning = true;  // Flag to track whether the model should keep spinning
+
+        // Initial rotation of the model (spin 360 degrees)
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Rotate the model for a 360 spin at the beginning
+            if (isSpinning && spinAngle < Math.PI * 2) {
+                spinAngle += 0.01; // Adjust speed of rotation
+                scene.rotation.y = spinAngle; // Rotate around Y-axis
+            }
+
+            controls.update(); // Update camera controls
+            renderer.render(scene, camera); // Render the scene from the camera's perspective
+        }
+        animate();
+
+        // Stop spinning when the model is clicked
+        window.addEventListener('click', () => {
+            isSpinning = false; // Stop the spin
+        });
+
+        // Handle window resizing
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
+    </script>
 </body>
 </html>
