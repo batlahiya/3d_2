@@ -152,7 +152,7 @@
         loader.load('5.glb', function(gltf) {
             gltf.scene.position.set(0, 0, 0);
             gltf.scene.rotation.set(0, Math.PI, 0); // Rotate model
-            gltf.scene.scale.set(1, 1, 1); // Scale the model
+            gltf.scene.scale.set(0.01, 0.01, 0.01); // Scale the model
             gltf.scene.castShadow = true;  // Enable the model to cast shadows
             gltf.scene.receiveShadow = true; // Enable the model to receive shadows
             scene.add(gltf.scene); // Add model to the scene
