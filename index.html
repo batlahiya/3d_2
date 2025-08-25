@@ -1,233 +1,164 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive 3D Model with Skybox</title>
-    <style>
-        body { 
-            margin: 0; 
-            overflow: hidden;
-            height: 100%;
-            font-family: 'Arial', sans-serif; /* Futuristic font */
-        }
-        canvas { 
-            display: block; 
-        }
-        #loader {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 24px;
-            color: #fff;
-        }
-        #notice {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            font-size: 24px;
-            color: #fff;
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 999;
-        }
-        #notice p {
-            text-align: center;
-            font-size: 2rem;
-            animation: scrollText 5s infinite linear;
-        }
-        @keyframes scrollText {
-            0% { transform: translateY(100%); }
-            100% { transform: translateY(-100%); }
-        }
-        #logo {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            max-width: 200px;
-            opacity: 0.8;
-            transition: opacity 0.5s ease;
-        }
-        #logo:hover {
-            opacity: 1;
-        }
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5); /* Dark overlay on the background */
-            z-index: -1; /* Put it behind the model */
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rock Statue - Dynamic Lighting</title>
+<style>
+body { margin:0; overflow:hidden; font-family:'Arial',sans-serif; }
+canvas { display:block; }
+#loader{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:24px;color:#fff;}
+#notice{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);color:#fff;display:flex;align-items:center;justify-content:center;font-size:2rem;}
+#logo { position: fixed; top: 20px; right: 20px; max-width:150px; opacity:0.8; transition: opacity 0.5s ease; }
+#logo:hover { opacity:1; }
+</style>
 </head>
 <body>
-    <div id="loader">Loading...</div>
-    <div id="notice"><p>Click and drag to rotate the model!</p></div>
-    <div class="overlay"></div> <!-- Dark shade on background -->
+<div id="loader">Loading...</div>
+<div id="notice"><p>Click and drag to rotate the model!</p></div>
+<img id="logo" src="logo.png" alt="Logo">
 
-    <!-- Logo at the top left corner -->
-    <img id="logo" src="logo.png" alt="Logo">
+<script src="https://cdn.jsdelivr.net/npm/three@0.135.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.135.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.135.0/examples/js/loaders/GLTFLoader.js"></script>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.135.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.135.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.135.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+// Scene, Camera, Renderer
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.001, 10);
+camera.position.set(0, 0.03, 0.08);
 
-    <script>
-        // Set up the scene, camera, and renderer
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true; // Enable shadow maps
-        document.body.appendChild(renderer.domElement);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
 
-        // Set up the loader message
-        const loaderElement = document.getElementById('loader');
-        const noticeElement = document.getElementById('notice');
+// Controls
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
 
-        // Hide the notice when clicked
-        noticeElement.addEventListener('click', () => {
-            noticeElement.style.display = 'none'; // Hide the notice
-        });
+// Loader & Notice
+const loaderElement = document.getElementById('loader');
+const noticeElement = document.getElementById('notice');
+noticeElement.addEventListener('click', ()=> noticeElement.style.display='none');
 
-        // Add OrbitControls for camera movement
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+// Background
+new THREE.TextureLoader().load("bg1.jpg", tex => scene.background = tex);
 
-        // Lighting - extremely bright model
-        const ambientLight = new THREE.AmbientLight(0xffffff, 2); // Moderate bright ambient light
-        scene.add(ambientLight);
+// --- Lighting for rock statue ---
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 3); // Strong directional light
-        directionalLight.position.set(5, 10, 5);
-        directionalLight.castShadow = true; // Enable shadow casting from this light
-        scene.add(directionalLight);
+// Key directional light (upper-mid body)
+const keyLight = new THREE.DirectionalLight(0xffffff, 0.6);
+keyLight.position.set(0, 0.08, 0.05);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048,2048);
+keyLight.shadow.radius = 2;
+scene.add(keyLight);
 
-        // Add more point lights to increase brightness in various directions
-        const pointLight1 = new THREE.PointLight(0xffffff, 2, 100);
-        pointLight1.position.set(10, 10, 10);
-        pointLight1.castShadow = true; // Enable shadow casting
-        scene.add(pointLight1);
+// Top spotlight
+const topLight = new THREE.DirectionalLight(0xffffff, 0.5);
+topLight.position.set(0, 0.09, 0);
+topLight.target.position.set(0, 0.05, 0);
+topLight.castShadow = true;
+topLight.shadow.mapSize.set(2048,2048);
+scene.add(topLight); scene.add(topLight.target);
 
-        const pointLight2 = new THREE.PointLight(0xffffff, 2, 100);
-        pointLight2.position.set(-10, -10, -10);
-        pointLight2.castShadow = true; // Enable shadow casting
-        scene.add(pointLight2);
+// Mid-body fill lights (dynamic warm/cool subtle)
+const midLeft = new THREE.DirectionalLight(0xfff8f0, 0.25); // warm tint
+midLeft.position.set(-0.05,0.045,0);
+midLeft.target.position.set(0,0.03,0);
+scene.add(midLeft); scene.add(midLeft.target);
 
-        // Additional point light to reduce dark areas in the model
-        const pointLight3 = new THREE.PointLight(0xffffff, 3, 100); // Increased intensity
-        pointLight3.position.set(0, 10, -10); // Positioned on the opposite side
-        pointLight3.castShadow = true;
-        scene.add(pointLight3);
+const midRight = new THREE.DirectionalLight(0xf0f8ff,0.25); // cool tint
+midRight.position.set(0.05,0.045,0);
+midRight.target.position.set(0,0.03,0);
+scene.add(midRight); scene.add(midRight.target);
 
-        // Add a spotlight for more directed light
-        const spotLight = new THREE.SpotLight(0xffffff, 2);
-        spotLight.position.set(0, 10, 5);
-        spotLight.target.position.set(0, 0, 0);
-        spotLight.castShadow = true; // Enable shadow casting
-        scene.add(spotLight);
-        scene.add(spotLight.target);
+// Rim/back light
+const rimLight = new THREE.DirectionalLight(0xffffff, 0.15);
+rimLight.position.set(0,0.06,-0.05);
+rimLight.target.position.set(0,0.03,0);
+scene.add(rimLight); scene.add(rimLight.target);
 
-        // Load the 6 textures for the skybox using CubeTextureLoader
-        const loaderEnvMap = new THREE.CubeTextureLoader();
-        const texture = loaderEnvMap.load([
-        'textures/skybox/px.jpg', // Positive X (right)
-        'textures/skybox/nx.jpg', // Negative X (left)
-        'textures/skybox/py.jpg', // Positive Y (up)
-        'textures/skybox/ny.jpg', // Negative Y (down)
-        'textures/skybox/pz.jpg', // Positive Z (front)
-        'textures/skybox/nz.jpg'  // Negative Z (back)
-        ]);
-        scene.background = texture; // Set the loaded cube textures as the scene's background
+// Soft base fill (slightly lowered intensity)
+const baseFill = new THREE.PointLight(0xffffff, 0.15, 0.2);
+baseFill.position.set(0, 0.01, 0);
+scene.add(baseFill);
 
-        // Load the 3D model (GLTF format)
-        const loader = new THREE.GLTFLoader();
-        loader.load('5.glb', function(gltf) {
-            // Add the model to the scene
-            gltf.scene.position.set(0, 0, 0);
-            gltf.scene.rotation.set(0, Math.PI, 0); // Rotate model
-            gltf.scene.scale.set(1, 1, 1); // Scale the model
-            gltf.scene.castShadow = true;  // Enable the model to cast shadows
-            gltf.scene.receiveShadow = true; // Enable the model to receive shadows
-            scene.add(gltf.scene);
+// Ground
+const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.5,0.5),
+    new THREE.ShadowMaterial({opacity:0.2})
+);
+ground.rotation.x = -Math.PI/2;
+ground.position.y = -0.025;
+ground.receiveShadow = true;
+scene.add(ground);
 
-            // Calculate the bounding box of the model
-            const box = new THREE.Box3().setFromObject(gltf.scene);
-            const size = new THREE.Vector3();
-            box.getSize(size); // Get the size of the model
+// Axes helper
+scene.add(new THREE.AxesHelper(0.05));
 
-            // Adjust camera position based on the model size
-            const modelCenter = box.getCenter(new THREE.Vector3()); // Get center of the model
-            const distance = size.length(); // The distance from the camera to fit the whole model in view
+// Load GLTF Model
+const loader = new THREE.GLTFLoader();
+let model;
+loader.load('5.glb', gltf => {
+    model = gltf.scene;
+    model.scale.set(1,1,1);
+    model.rotation.set(0, Math.PI/2, 0);
+    model.position.set(0,0,0);
 
-            // Update camera position dynamically
-            camera.position.set(modelCenter.x, modelCenter.y, modelCenter.z + distance * 1.5); // Position camera based on the model size
-            camera.lookAt(modelCenter); // Ensure the camera is looking at the center of the model
-
-            // Optional: Adjust the field of view (FOV) based on model size
-            const fov = 2 * Math.atan(size.y / (2 * distance)) * (180 / Math.PI); // Adjust FOV to fit the model
-            camera.fov = fov; 
-            camera.updateProjectionMatrix(); // Update the camera's projection matrix
-
-            // Hide loading spinner once the model is loaded
-            loaderElement.style.display = 'none';
-        }, undefined, function(error) {
-            console.error('Error loading model:', error);
-        });
-
-        // Create a ground plane to receive the shadow
-        const groundGeometry = new THREE.PlaneGeometry(50, 50);
-        const groundMaterial = new THREE.ShadowMaterial({ opacity: 0.5 }); // Shadow material for the ground
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.rotation.x = - Math.PI / 2;  // Rotate ground to lie flat
-        ground.position.y = -2;  // Position it below the model
-        ground.receiveShadow = true;  // Allow the ground to receive shadows
-        scene.add(ground);
-
-        // Set camera position
-        camera.position.set(0, 2, 5);
-
-        // Add camera axis helper for better visibility of camera orientation
-        const cameraHelper = new THREE.AxesHelper(2);
-        camera.add(cameraHelper);
-
-        // Flag to control the spinning
-        let spinAngle = 0;
-        let isSpinning = true;  // Flag to track whether the model should keep spinning
-
-        // Initial rotation of the model (spin 360 degrees)
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            // Rotate the model for a 360 spin at the beginning
-            if (isSpinning && spinAngle < Math.PI * 2) {
-                spinAngle += 0.01; // Adjust speed of rotation
-                scene.rotation.y = spinAngle; // Rotate around Y-axis
-            }
-
-            controls.update(); // Update camera controls
-            renderer.render(scene, camera); // Render the scene from the camera's perspective
+    model.traverse(c => {
+        if(c.isMesh && c.material){
+            c.castShadow = true;
+            c.receiveShadow = true;
+            c.material.side = THREE.DoubleSide;
+            c.material.roughness = 0.9;
+            c.material.metalness = 0.0;
+            c.material.needsUpdate = true;
         }
-        animate();
+    });
 
-        // Stop spinning when the model is clicked
-        window.addEventListener('click', () => {
-            isSpinning = false; // Stop the spin
-        });
+    scene.add(model);
 
-        // Handle window resizing
-        window.addEventListener('resize', () => {
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-        });
-    </script>
+    // Fit camera
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const distance = size.length();
+    camera.position.set(center.x, center.y + distance*0.2, center.z + distance*0.5);
+    camera.lookAt(center);
+
+    loaderElement.style.display = 'none';
+}, undefined, e => console.error(e));
+
+// Spin animation
+let spinAngle = 90;
+let isSpinning = true;
+function animate(){
+    requestAnimationFrame(animate);
+    if(model && isSpinning){
+        spinAngle += 0.01;
+        model.rotation.y = spinAngle;
+    }
+    controls.update();
+    renderer.render(scene, camera);
+}
+animate();
+window.addEventListener('click', ()=> isSpinning=false);
+
+// Responsive resize
+window.addEventListener('resize', ()=>{
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+});
+</script>
 </body>
 </html>
