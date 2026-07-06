@@ -132,7 +132,7 @@ scene.add(ground);
 // --- Load GLTF Model ---
 const gltfLoader = new THREE.GLTFLoader(manager);
 let model;
-gltfLoader.load('canon.glb', gltf => {
+gltfLoader.load('5.glb', gltf => {
     model = gltf.scene;
     model.scale.set(1,1,1);
     model.rotation.set(0, Math.PI/2, 0);
